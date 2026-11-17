@@ -71,8 +71,9 @@ test('export downloads real source and publication remains honest', async ({ pag
   await expect(page.getByText(/Source exported\. Follow the README/)).toBeVisible();
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Publish', exact: true }).click();
-  await expect(page.getByText('Publishing is not available in this release.', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Nothing has been uploaded or charged/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Publish a Fuji website', exact: true })).toBeVisible();
+  await expect(page.getByText('Public data. Temporary testnet storage.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Prepare snapshot & quote (no signature)', exact: true })).toBeDisabled();
 });
 
 test('malformed import preserves the current project', async ({ page }) => {

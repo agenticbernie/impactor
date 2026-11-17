@@ -1,0 +1,42 @@
+# Experimental static website publishing
+
+Studio publishes a self-contained website to **Irys devnet**, paid only with **Avalanche Fuji test AVAX (chain 43113)**. It does not publish a JSON-only preview that depends on hosted Impactor. This is experimental integration, not production hosting or a security audit. Real Core/MetaMask funding, upload signing and live gateway publication have **not** been acceptance-tested by the implementation agent; no real wallet transaction or public upload was performed.
+
+## Build and configuration
+
+- `npm ci`, then `npm run dev` or `npm run build`. Both pre-hooks run `scripts/bundle-runtime.mjs` for the existing source ZIP and `scripts/bundle-static.mjs` for the static runtime and editor-only browser SDK.
+- After changing dependencies, run `node scripts/bundle-runtime.mjs --refresh-lock`. Normal builds reuse the verified source-export dependency lock without network resolution.
+- Generated browser files live in ignored `public/publish-runtime/`. Deploy them with the Next application. `generated-static.json` records runtime byte lengths and SHA-256 hashes; preparation refuses missing or mismatching files. Build before running static-package tests on a fresh checkout.
+- Fixed publisher endpoints: `https://devnet.irys.xyz`, `https://api.avax-test.network/ext/bc/C/rpc`, and `https://gateway.irys.xyz`. No environment variable can switch publishing to mainnet, another payment asset or an arbitrary gateway.
+- HTTPS or localhost and a modern browser supporting Web Crypto and Web Locks are required. No service credentials, private keys, hosted build service, WalletConnect relay or backend are needed. Project RPC URLs remain public and are used by the runtime for its configured chain operations.
+- Pinned SDKs: `@irys/web-upload` 0.0.15, `@irys/web-upload-ethereum` 0.0.16, `@irys/web-upload-ethereum-viem-v2` 0.0.17, `@irys/bundles` 0.0.3. Esbuild 0.28.2 compiles the real shared `RuntimeApp`; only the editor's separately loaded SDK bundle uses controlled Node/browser polyfills including crypto. Publisher dependencies are excluded from source exports and published apps.
+
+## What is uploaded
+
+A validated canonical project snapshot, the shared compiled runtime, its CSS, license notices and an index HTML file. The HTML embeds the same runtime/CSS and escaped inert project JSON, so it runs at `/manifestId`, `/manifestId/`, or a transaction-isolated CDN root without depending on gateway-relative asset URL behavior. Separate `app.js`, `app.css`, `project.json`, and `LICENSES.txt` are also included for inspection and manifest-route verification. All authored text stays data, not executable HTML. There is a 1 MiB project limit and 16 MiB total website limit. Runtime wallets/RPC remain external services; “self-contained” describes application code and authored configuration, not offline blockchain access.
+
+The adapter mirrors the installed SDK's `uploadFolder` format while separating preparation from wallet signing: locally generated ephemeral keys sign the individual file transactions and `irys/paths` version `0.1.0` manifest (`application/x.irys-manifest+json`, `index.path = index.html`); the resulting nested bundle gets one wallet upload signature. No ephemeral private key is saved. The exact outer transaction byte length—including manifest, all files, signatures, tags and bundle overhead—is quoted with `tx.getPrice()`. Small files are **not** assumed free. The current SDK returns canonical base58 IDs decoding to exactly 32 bytes. The legacy `/dapp/[txId]` JSON snapshot route retains its separate 43-character base64url validation; new website links never use that route.
+
+## Consent and recovery
+
+1. Open Publish, review public-data/testnet warnings, deliberately connect and if necessary switch to Fuji.
+2. Prepare a snapshot and quote. This downloads local build assets, generates local ephemeral signatures, reads the public Fuji chain ID and Irys price/balance/address. It does **not** request a wallet signature, payment or upload.
+3. Review exact storage price, existing storage balance, additional funding and funding recipient. Quotes expire after five minutes. Gas is separate and shown by the wallet.
+4. If needed, explicitly fund the shortfall. A viem Fuji transfer—not SDK automatic funding—records the broadcast hash before asking Irys to credit it. No token allowance is requested. Rejecting the wallet prompt cancels this action.
+5. Explicitly choose Sign & upload. The typed-data signature authorizes the prepared bundle to spend storage credit. It does not transfer additional AVAX. Price, balance, project, selected wallet and live wallet chain/account are checked again. There are no automatic top-ups or reuploads.
+6. Verify gateway content. The ID/link survives upload-response uncertainty, indexing delay, CORS errors or failed checks. Retry **verification**, not upload/payment. Successful verification hashes root HTML and every named manifest-routed file and checks HTML MIME type. There is no documented raw indexed-manifest bypass endpoint: the raw manifest JSON is retained locally but is **not** claimed to have been fetched independently. Fixed gateway requests may follow redirects only for response validation; accepted final URLs are restricted to the fixed gateway or documented `*.datasprite-cdn.com` with known transaction/path semantics. Exact byte/hash checks—not the hostname suffix—establish content equality. Unknown CDN shapes remain verification-pending.
+
+Modal closing does not recreate the publisher or cancel a pending transaction. Web Locks prevent simultaneous spending in multiple tabs. Local recovery records contain public IDs, content hashes, canonical manifest and funding transaction metadata, not keys. Writable browser storage is required before spending/signing. Load local publication history to recover after reload. A funding transport error without a hash is deliberately blocked: inspect wallet history, enter the **original** transaction hash and check credit. `submitFundTransaction` only resubmits that existing hash for Irys credit evaluation; it never sends another payment. If local storage is cleared or inaccessible, consult saved IDs and wallet history—do not blindly repeat a transfer. No withdrawal UI is implemented.
+
+Devnet retention is documented as approximately **60 days**, not permanence or an availability SLA. Current Irys L1 routing and devnet delivery can change. Public endpoint reads showed devnet info/pricing and browser CORS access; that is not evidence of an actual successful website upload.
+
+## Verification performed without real payments
+
+- `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
+- `IMPACTOR_VERIFY_STATIC=1 IMPACTOR_CHROMIUM_PATH=/usr/bin/chromium npx vitest run tests/export/static.test.ts`: actual shared runtime on an independent HTTP static server, root/path variants, workflow interaction, mobile layout, no implicit wallet requests, no external app-code requests; real compiled browser SDK prepares a manifest and exact-byte quote against mocked public endpoints and a deliberately rejected fake-wallet signature.
+- `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium npm run test:e2e`: Studio regressions and a mocked browser publication quote/rejected-funding flow.
+- `IMPACTOR_VERIFY_EXPORT=1 IMPACTOR_CHROMIUM_PATH=/usr/bin/chromium npx vitest run tests/export/standalone.test.ts`: extracted source ZIP install, checks, build and browser runtime.
+
+## Manual acceptance still required
+
+Use only a disposable Fuji test wallet, after reviewing dependencies and project data. Test Core and MetaMask separately: connect/switch, quote, rejected payment, small explicit funding, pending-credit recovery using the same hash, rejected upload signature, accepted upload, root HTML and every path retrieval, browser CORS/CDN behavior, offline Impactor independence, refresh/local recovery, and wallet/chain/project changes while prompts are open. Check wallet gas and Irys balance against displayed values. Record manifest and bundle IDs and funding hash. Never fund mainnet or use real-value AVAX to test this implementation. If live endpoint/signature or CDN behavior differs, keep the ID and investigate rather than enabling a fallback network or repeating payments.

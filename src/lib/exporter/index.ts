@@ -51,7 +51,7 @@ This application contains the exact portable runtime sources bundled with Impact
 - Execution and deployments are Fuji-first; Mainnet and custom-L1 writes are not enabled. A contract address/ABI is not a security audit or source verification.
 - Connecting a wallet, switching networks, and signing must be deliberate user actions. No wallet keys or sessions are included in this export.
 - Runtime input, wallet context and run journals are not exported. Authored initial values ARE public data: inspect them before sharing or deploying.
-- Irys funding/upload/publication is disabled because the current browser-wallet, payment-chain/asset, fees and retrieval guarantees have not been verified. This app is hosted by your chosen Next.js host, not by a JSON storage gateway.
+- Runtime Irys workflow uploads remain disabled. Studio separately offers experimental, explicit Fuji-funded static website publication to temporary Irys devnet storage; this exported Next.js source project does not include publisher code and is hosted by your chosen Next.js host.
 - Wallet compatibility, real Fuji transactions, accessibility of authored content, RPC availability, dependency security and deployment operations require your own verification. This is not an automatically audited or production-ready application.
 - A submitted transaction cannot be undone by closing this page. Receipt uncertainty is not proof of failure; do not blindly submit again.
 

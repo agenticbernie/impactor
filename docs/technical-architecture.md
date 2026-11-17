@@ -5,6 +5,8 @@ Date: November 16, 2026
 Lens: AI-Centered Development (AICD)
 Status: Design, not an inventory of implemented modules
 
+**Implementation update (November 17, 2026):** The user-approved publisher now packages the actual shared runtime as a self-contained static website, rather than requiring hosted Impactor to render a stored snapshot. See [publishing.md](publishing.md) for implemented build boundaries, pinned SDKs, explicit Fuji funding/upload consent, content verification and recovery. New publication URLs point directly to the fixed Irys gateway; `/dapp/[txId]` remains a separate legacy JSON-snapshot loader. The older snapshot-host design below is historical where it differs. Integration is experimental: independent static-host and mocked browser-SDK tests pass, but live wallet funding/signing and public gateway delivery still require manual acceptance.
+
 ## 1. Architecture summary
 
 Build a client-first modular application with one versioned project schema, one portable runtime, isolated external-service adapters, and a source exporter that packages the same runtime. Keep the editor, authored data, runtime session, and irreversible external effects separate.

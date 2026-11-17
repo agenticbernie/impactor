@@ -6,13 +6,13 @@ export const SNAPSHOT_TIMEOUT_MS = 15_000;
 export const IRYS_GATEWAY = process.env.NEXT_PUBLIC_IRYS_GATEWAY || 'https://gateway.irys.xyz';
 
 export const publicationCapability = {
-  enabled: false,
-  status: 'unverified',
-  reason: 'Publishing is disabled: browser SDK/wallet compatibility, payment chain and asset, fees/funding, upload completion, and retrieval guarantees have not been verified.',
+  enabled: true,
+  status: 'experimental',
+  reason: 'Experimental static-site publication to Irys devnet using Fuji test AVAX. Live browser-wallet funding, signing and public gateway delivery require acceptance testing.',
   reasons: [
-    'Current Irys browser SDK and Core/MetaMask wallet compatibility are unverified.',
-    'Supported storage-payment chain, asset, fees and funding flow are unverified; Fuji test AVAX support is not assumed.',
-    'Upload completion semantics, identifier format, payload limits, CORS and current storage/retrieval guarantees are unverified.',
+    'Pinned browser SDK, explicit devnet and Fuji payment configuration; no mainnet fallback.',
+    'Exact bundle quotes and separate explicit funding/upload actions; no automatic payments.',
+    'Devnet retention is temporary (typically about 60 days). Live wallet and gateway publication are not yet verified.',
   ],
   retrieval: 'experimental',
 } as const;

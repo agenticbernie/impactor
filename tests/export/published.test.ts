@@ -8,9 +8,9 @@ function responseFetcher(body: string, init?: ResponseInit) {
 }
 
 describe('bounded experimental published snapshots', () => {
-  it('keeps paid publication disabled with explicit unresolved capabilities', () => {
-    expect(publicationCapability.enabled).toBe(false);
-    expect(publicationCapability.reason).toMatch(/payment chain/);
+  it('labels static publication experimental without claiming live acceptance', () => {
+    expect(publicationCapability.enabled).toBe(true);
+    expect(publicationCapability.reason).toMatch(/require acceptance testing/);
     expect(publicationCapability.retrieval).toBe('experimental');
   });
 
