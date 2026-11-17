@@ -23,10 +23,13 @@ function parameters(value: unknown, depth = 0): boolean {
     && (!p.type.startsWith('tuple') || parameters(p.components, depth + 1)));
 }
 export function parseAbiJson(text: string): Abi {
-  if (text.length > 200_000) throw new Error('ABI exceeds 200 KB');
+  // Bound the input before parsing; source/bytecode in artifact files are not ABI data.
+  if (new TextEncoder().encode(text).length > 1024 * 1024) throw new Error('ABI JSON or artifact exceeds 1 MiB (1,048,576 UTF-8 bytes)');
   let raw: unknown;
   try { raw = JSON.parse(text); } catch { throw new Error('ABI must be valid JSON'); }
-  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 300) throw new Error('ABI must be a non-empty array (maximum 300 entries)');
+  if (record(raw)) raw = raw.abi;
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 300) throw new Error('ABI must be a non-empty array or an artifact containing an abi array (maximum 300 entries)');
+  if (new TextEncoder().encode(JSON.stringify(raw)).length > 200 * 1024) throw new Error('Extracted ABI exceeds 200 KiB (204,800 UTF-8 bytes, excluding formatting and artifact metadata)');
   for (const item of raw) {
     if (!record(item) || !['function', 'constructor', 'event', 'error', 'receive', 'fallback'].includes(String(item.type))) throw new Error('Unsupported ABI entry');
     if (['function', 'event', 'error'].includes(String(item.type)) && (typeof item.name !== 'string' || !/^[A-Za-z_$][\w$]*$/.test(item.name))) throw new Error('Invalid ABI name');

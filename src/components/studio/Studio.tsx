@@ -10,6 +10,7 @@ import type { BlockType } from '@/lib/schema/types';
 import { exportProject } from '@/lib/exporter';
 import RuntimeApp from '@/components/runtime/RuntimeApp';
 import ContractManager from '@/components/runtime/ContractManager';
+import { Web3Providers } from '@/components/providers/Web3Providers';
 import { WorkflowEditor } from '@/components/workflow/WorkflowEditor';
 import { Brand } from '@/components/ui/Brand';
 import { Modal } from '@/components/ui/Modal';
@@ -21,7 +22,7 @@ type DialogName = 'projects' | 'export' | 'publish' | 'source' | 'help' | 'varia
 function download(blob: Blob, filename: string) { const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000); }
 const saveLabels = { loading: 'Opening local draft…', dirty: 'Unsaved changes', saving: 'Saving…', saved: 'Draft saved locally', error: 'Draft not saved', conflict: 'Local save conflict' };
 
-export function Studio() {
+function StudioBody() {
   const store = useStudioStore();
   const [ready, setReady] = useState(false);
   const [dialog, setDialog] = useState<DialogName>(null);
@@ -99,3 +100,7 @@ export function Studio() {
   </div>;
 }
 function MouseHint() { return <span className="hint-cross">+</span>; }
+
+export function Studio() {
+  return <Web3Providers><StudioBody /></Web3Providers>;
+}
