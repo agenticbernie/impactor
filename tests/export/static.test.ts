@@ -64,16 +64,40 @@ it.skipIf(process.env.IMPACTOR_VERIFY_STATIC !== '1')('runs the actual runtime o
     await page.addScriptTag({ url: origin + '/sdk.js' });
     const result = await page.evaluate(async files => {
       const calls: string[] = [];
-      const wallet = { account: { address: `0x${'1'.repeat(40)}` }, getAddresses: async () => [`0x${'1'.repeat(40)}`], getChainId: async () => 43113, signTypedData: async () => { calls.push('sign'); throw new Error('User rejected test signature'); }, sendTransaction: async () => { calls.push('pay'); throw new Error('Forbidden'); } };
+      const reads: string[] = [];
+      const rawAccount = '0xABcdEFABcdEFabcdEfAbCdefabcdeFABcDEFabCD';
+      let selectedAccount = '';
+      let messageAccount = '';
+      const wallet = {
+        account: { address: rawAccount },
+        getAddresses: async () => [rawAccount],
+        getChainId: async () => 43113,
+        request: async ({ method }: { method: string }) => {
+          reads.push(method);
+          if (method !== 'eth_accounts') throw new Error(`Forbidden wallet request: ${method}`);
+          return [rawAccount];
+        },
+        signTypedData: async (args: { account: string; message: { address: string } }) => {
+          calls.push('sign');
+          selectedAccount = args.account; messageAccount = args.message.address;
+          // Emulate Core's exact-string membership check, not a real signature.
+          if (args.account !== rawAccount) throw new Error('The account shown for this request is not part of the active wallet.');
+          throw new Error('User rejected test signature');
+        },
+        sendTransaction: async () => { calls.push('pay'); throw new Error('Forbidden'); },
+      };
       const sdk = (window as unknown as { ImpactorStorageSDK: { connect: (wallet: unknown, guard: () => Promise<void>) => Promise<import('@/lib/irys/types').StorageAdapter> } }).ImpactorStorageSDK;
       const adapter = await sdk.connect(wallet, async () => {});
       const prepared = await adapter.prepare(files);
       const price = await prepared.price();
       const before = [...calls]; let rejection = '';
       try { await prepared.upload(() => { throw new Error('No upload should be attempted'); }); } catch (error) { rejection = String(error); }
-      return { manifest: prepared.manifest, bytes: prepared.bytes, manifestId: prepared.manifestId, price: price.toString(), before, calls, rejection };
+      return { manifest: prepared.manifest, bytes: prepared.bytes, manifestId: prepared.manifestId, price: price.toString(), before, calls, reads, selectedAccount, messageAccount, rawAccount, rejection };
     }, site.files);
     expect(result.manifest.manifest).toBe('irys/paths'); expect(result.manifest.index.path).toBe('index.html'); expect(validId(result.manifestId)).toBe(true);
     expect(result.bytes).toBeGreaterThan(site.bytes); expect(result.price).toBe('123456789'); expect(result.before).toEqual([]); expect(result.calls).toEqual(['sign']); expect(result.rejection).toMatch(/rejected test signature/); expect(errors).toEqual([]);
+    expect(result.reads).toEqual(['eth_accounts']);
+    expect(result.selectedAccount).toBe(result.rawAccount);
+    expect(result.messageAccount).toBe(result.rawAccount.toLowerCase());
   } finally { await browser.close(); await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
 }, 180_000);

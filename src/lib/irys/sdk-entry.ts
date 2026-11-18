@@ -45,8 +45,21 @@ function hasCoreAccountMismatch(error: unknown): boolean {
 export async function signTypedDataWithConsistency(wallet: WalletClient, expectedAddress: string, guard: () => Promise<void>, args: SigningArguments) {
   await guard();
   await assertSignerConsistency(wallet, expectedAddress);
+
+  // Core 1.138.0 returns its stored address spelling from eth_accounts, then
+  // uses a case-sensitive membership check for typed-data signing. Irys lowercases
+  // the same address in args.account, so use Core's exact RPC spelling only for
+  // viem's eth_signTypedData_v4 account selector. The signed payload is unchanged.
+  if (typeof args.account !== 'string' || !sameAddress(args.account, expectedAddress)) {
+    throw new Error('Irys requested an unexpected upload signer. Reconnect the intended Fuji account and prepare a fresh quote.');
+  }
+  const rawAccounts: unknown = await wallet.request({ method: 'eth_accounts' });
+  if (!Array.isArray(rawAccounts) || typeof rawAccounts[0] !== 'string' || !isAddress(rawAccounts[0], { strict: false }) || !sameAddress(rawAccounts[0], expectedAddress) || !sameAddress(rawAccounts[0], args.account)) {
+    throw new Error('The active wallet account changed before upload signing. Reconnect the intended Fuji account and prepare a fresh quote.');
+  }
+
   try {
-    return await wallet.signTypedData(args);
+    return await wallet.signTypedData({ ...args, account: rawAccounts[0] as `0x${string}` });
   } catch (error) {
     if (hasCoreAccountMismatch(error)) throw new Error('Core rejected the upload authorization because the request account is not active in Core. Reconnect the intended Fuji account, prepare a fresh quote, then review the upload signature again.');
     throw error;
