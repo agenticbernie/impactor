@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getWalletClient } from 'wagmi/actions';
 import type { ImpactorProjectSchema, ContractConfig } from '../../lib/schema/types';
@@ -13,8 +13,8 @@ import { WalletControls } from './WalletControls';
 import { TransactionReviewDialog, useTransactionReview } from './TransactionReview';
 import './runtime.css';
 
-type Props = { project: ImpactorProjectSchema; onChange: (project: ImpactorProjectSchema) => void };
-function ContractManagerBody({ project, onChange }: Props) {
+type Props = { project: ImpactorProjectSchema; onChange: (project: ImpactorProjectSchema) => void; locked?: boolean };
+function ContractManagerBody({ project, onChange, locked = false }: Props) {
   const config = useConfig();
   const latest = useRef({ project, onChange }); latest.current = { project, onChange };
   const [tab, setTab] = useState<'import' | 'deploy'>('import');
@@ -26,6 +26,7 @@ function ContractManagerBody({ project, onChange }: Props) {
   const [hash, setHash] = useState<`0x${string}`>();
   const pending = useRef<{ project: ImpactorProjectSchema; form: DeploymentInput } | undefined>(undefined);
   const { intent, review, answer } = useTransactionReview();
+  useEffect(() => { if (locked && intent) answer(false); }, [answer, intent, locked]);
   const template = CONTRACT_TEMPLATES.find(item => item.templateId === form.templateId)!;
   function add(contract: ContractConfig, original: ImpactorProjectSchema) {
     if (latest.current.project.id !== original.id || latest.current.project.network.chainId !== original.network.chainId) {
@@ -111,7 +112,7 @@ function ContractManagerBody({ project, onChange }: Props) {
     {error && <p role="alert" className="rt-error">{error}</p>}{message && <p role="status" className="rt-message">{message}</p>}
     {hash && <div className="rt-run"><p>Deployment transaction · {status.replaceAll('_', ' ')}</p><code className="rt-address">{hash}</code>{status === 'unknown' && <button type="button" disabled={busy} onClick={() => void reconcile()}>Check deployment status (no resubmission)</button>}</div>}
     <section><h3>Project contracts ({project.contracts.length})</h3>{project.contracts.map(contract => <article className="rt-contract-card" key={contract.id}><strong>{contract.name}</strong><code className="rt-address">{contract.address}</code><small>Chain {contract.chainId} · {contract.exposedFunctions.length} exposed functions · source not verified</small></article>)}{!project.contracts.length && <p>No contracts registered. Import an address and ABI or deploy a Fuji template.</p>}</section>
-    <TransactionReviewDialog intent={intent} answer={answer} />
+    <TransactionReviewDialog intent={locked ? null : intent} answer={answer} />
   </section>;
 }
 export function ContractManager(props: Props) { return <Web3Providers><ContractManagerBody {...props} /></Web3Providers>; }

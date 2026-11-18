@@ -28,11 +28,11 @@ test('publish quote uses real browser SDK without implicit signatures and surviv
     return route.fulfill({ contentType: 'application/json', body: url.endsWith('/info') ? JSON.stringify({ addresses: { avalanche: account } }) : url.includes('/price/') ? '1000000000000000' : JSON.stringify({ balance: '0' }) });
   });
   await page.goto('/studio');
+  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
   await page.getByRole('button', { name: 'Publish', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Publish a Fuji website' })).toBeVisible();
-  expect(await page.evaluate(() => (window as unknown as { __publishCalls: string[] }).__publishCalls.filter(m => m === 'eth_requestAccounts' || m.includes('sign') || m.startsWith('eth_send')))).toEqual([]);
-  await dialog.getByRole('button', { name: /^Connect / }).first().click();
+  expect(await page.evaluate(() => (window as unknown as { __publishCalls: string[] }).__publishCalls.filter(m => m.includes('sign') || m.startsWith('eth_send')))).toEqual([]);
   await dialog.getByRole('checkbox').check();
   await dialog.getByRole('button', { name: 'Prepare snapshot & quote (no signature)', exact: true }).click();
   await expect(dialog.getByRole('heading', { name: 'Review storage quote' })).toBeVisible({ timeout: 60_000 });

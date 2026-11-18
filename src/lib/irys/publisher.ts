@@ -19,7 +19,7 @@ export function loadStorageSDK(): Promise<StorageSDK> {
 }
 export async function assertWallet(wallet: WalletClient, address: string): Promise<void> {
   const [chain, accounts] = await Promise.all([wallet.getChainId(), wallet.getAddresses()]);
-  if (chain !== 43113 || accounts[0]?.toLowerCase() !== address.toLowerCase()) throw new Error('Wallet or chain changed. Reconnect on Fuji and prepare a fresh quote.');
+  if (chain !== 43113 || wallet.account?.address?.toLowerCase() !== address.toLowerCase() || accounts[0]?.toLowerCase() !== address.toLowerCase()) throw new Error('Wallet or chain changed. Reconnect on Fuji and prepare a fresh quote.');
 }
 function rejected(error: unknown): boolean {
   let current = error;

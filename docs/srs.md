@@ -72,7 +72,7 @@ Acceptance: clicking an Edit-mode ContractWrite block only selects it. A Preview
 - Fuji (`43113`) shall be the default P0 execution target. Mainnet (`43114`) and custom EVM network configurations shall be representable, but unsupported write/deploy targets shall be blocked and labeled.
 - Custom configuration shall include chain ID, RPC URL, optional explorer URL, and native currency name/symbol/decimals. Supplied chain ID shall be checked against the RPC response when the configuration is tested.
 - Production URL configuration shall permit only supported safe protocols and shall identify URLs as public, browser-visible information. Private provider secrets shall never be requested as public client configuration.
-- Editing and offline schema export shall not require a wallet. Wallet connection and network switching shall be user initiated.
+- Studio editing and source export require an explicit user-initiated wallet connection to enter the client-side workspace; this does not require a signed login or Impactor account. The exported application remains independent of an Impactor account, and its own wallet interactions remain user initiated.
 - Before each signature request, the runtime shall recheck the selected chain/account against the run intent. Account/chain changes shall invalidate stale simulations and require renewed review.
 - A chain switch or account change after broadcast shall not discard the transaction's original network/hash.
 

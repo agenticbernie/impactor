@@ -40,7 +40,7 @@ A timeout is “Status not yet known,” not “Transaction failed.” A confirm
 
 ### 2.5 Prefer prevention to late recovery
 
-Mark unsupported ABI types, missing bindings, wrong chains, and invalid graphs in the editor before a wallet opens. Disable the unsafe action with an accessible reason and a direct path to fix the issue. Do not disable unrelated editing/export functions merely because a wallet is disconnected.
+Mark unsupported ABI types, missing bindings, wrong chains, and invalid graphs in the editor before a wallet action opens. Disable the unsafe action with an accessible reason and a direct path to fix the issue. The Studio entry gate requires an explicit wallet connection, but must not request a signature, payment, or upload merely to enter or reconnect.
 
 ### 2.6 Make recovery non-destructive
 

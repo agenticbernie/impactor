@@ -24,7 +24,7 @@ function actionFor(block: UIBlockNode): ContractActionConfig {
 function initialInputs(project: ImpactorProjectSchema): BindingContext['inputs'] {
   return Object.fromEntries(flattenBlocks(project.uiTree).filter(block => block.type === 'Input').map(block => [block.id, { value: String(block.props.value ?? '') }]));
 }
-function RuntimeBody({ project }: { project: ImpactorProjectSchema }) {
+function RuntimeBody({ project, locked = false }: { project: ImpactorProjectSchema; locked?: boolean }) {
   const config = useConfig();
   const account = useAccount();
   const validation = useMemo(() => validateProject(project), [project]);
@@ -45,6 +45,7 @@ function RuntimeBody({ project }: { project: ImpactorProjectSchema }) {
   const latestProject = useRef(project); latestProject.current = project;
   const loadedReads = useRef(new Map<string, { contract: ContractConfig; action: ContractActionConfig; context: BindingContext }>());
   const { intent, review, answer } = useTransactionReview();
+  useEffect(() => { if (locked && intent) answer(false); }, [answer, intent, locked]);
   const busy = engine.current.busy;
   useEffect(() => {
     // Keep the engine and original receipt monitor mounted while a signature or receipt is unresolved.
@@ -145,10 +146,10 @@ function RuntimeBody({ project }: { project: ImpactorProjectSchema }) {
     {error && <p className="rt-error" role="alert">{error}</p>}{message && <p className="rt-message" role="status">{message}</p>}
     {run && <section className="rt-run" aria-label="Run status" aria-live="polite"><header><h3>{run.active ? 'Run in progress' : run.steps.some(step => step.status === 'unknown') ? 'Transaction status unknown' : 'Run finished'}</h3>{run.active && <button type="button" onClick={() => { engine.current?.cancel(); answer(false); }}>Stop unstarted actions</button>}</header><p>Chain {run.chainId}. Cancellation cannot undo a submitted transaction.</p><ol>{run.steps.map(step => <li key={step.nodeId}><strong>{step.label}</strong> <span>{step.status.replaceAll('_', ' ')}</span>{step.txHash && <code className="rt-address">{step.txHash}</code>}{step.error && <p className="rt-error">{step.error}</p>}{step.status === 'unknown' && step.txHash && <button type="button" disabled={checking} onClick={() => void check(step.txHash!)}>Check status (read only)</button>}</li>)}</ol></section>}
     <details className="rt-history"><summary>Recover known transactions</summary><p>Local hashes only; storage can be cleared or unavailable. Checking never resumes signatures or downstream actions.</p><button type="button" onClick={() => setHistory(readJournal().filter(entry => entry.chainId === project.network.chainId))}>Load local transaction journal</button>{history.map(entry => <div key={entry.hash}><code className="rt-address">{entry.hash}</code><span>{entry.kind} · {entry.status}</span><button type="button" disabled={checking} onClick={() => void check(entry.hash)}>Check status</button></div>)}</details>
-    <TransactionReviewDialog intent={intent} answer={answer} />
+    <TransactionReviewDialog intent={locked ? null : intent} answer={answer} />
   </section>;
 }
-export function RuntimeApp({ project }: { project: ImpactorProjectSchema }) {
-  return <Web3Providers><RuntimeBody project={project} /></Web3Providers>;
+export function RuntimeApp({ project, locked = false }: { project: ImpactorProjectSchema; locked?: boolean }) {
+  return <Web3Providers><RuntimeBody project={project} locked={locked} /></Web3Providers>;
 }
 export default RuntimeApp;

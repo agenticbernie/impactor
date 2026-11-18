@@ -2,18 +2,46 @@ import { test, expect } from '@playwright/test';
 import erc20 from '../../src/lib/web3/artifacts/FixedSupplyToken.json';
 import erc721 from '../../src/lib/web3/artifacts/OwnerMintNFT.json';
 
+const defaultAccount = '0x0000000000000000000000000000000000000001';
+
+async function installStudioWallet(page: import('@playwright/test').Page) {
+  await page.addInitScript(account => {
+    if (window.ethereum) return;
+    const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+    Object.defineProperty(window, '__emitWalletEvent', { value: (event: string, ...args: unknown[]) => listeners.get(event)?.forEach(listener => listener(...args)) });
+    Object.defineProperty(window, 'ethereum', { configurable: true, value: {
+      request: async ({ method }: { method: string }) => {
+        if (method === 'eth_accounts' || method === 'eth_requestAccounts') return [account];
+        if (method === 'eth_chainId') return '0xa869';
+        if (method === 'wallet_requestPermissions') return [];
+        throw new Error(`Unexpected wallet request: ${method}`);
+      }, on(event: string, listener: (...args: unknown[]) => void) { const registered = listeners.get(event) ?? new Set(); registered.add(listener); listeners.set(event, registered); }, removeListener(event: string, listener: (...args: unknown[]) => void) { listeners.get(event)?.delete(listener); },
+    } });
+  }, defaultAccount);
+}
+
 async function openStudio(page: import('@playwright/test').Page) {
+  await installStudioWallet(page);
   await page.goto('/studio');
+  const gate = page.getByRole('main');
+  if (await gate.getByText('Connect to access Studio.', { exact: true }).isVisible()) await gate.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
   await expect(page.getByRole('navigation', { name: 'Studio workspace' })).toBeVisible();
   await expect(page.locator('.save-status')).toHaveText('Draft saved locally');
 }
 
-test('landing leads into a working, wallet-free Studio', async ({ page }) => {
+test('landing wallet entry and direct Studio gate require a deliberate connection', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
+  await installStudioWallet(page);
   await page.goto('/');
   await expect(page.locator('h1')).toBeVisible();
-  await page.locator('a[href="/studio"]').first().click();
+  await expect(page.getByRole('button', { name: /Connect .*sign in \/ sign up/i })).toBeVisible();
+  await expect(page.getByText('Connection only — no Impactor account, signature, payment, or upload.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Connect a wallet to build/i })).toHaveAttribute('href', '/studio');
+  await page.goto('/studio');
+  await expect(page.getByRole('heading', { name: 'Connect to access Studio.', exact: true })).toBeVisible();
+  await expect(page.locator('[id="main-content"]')).toHaveCount(1);
+  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
   await expect(page.getByRole('navigation', { name: 'Studio workspace' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Your token dashboard', exact: true })).toBeVisible();
   await expect(page.getByText('Edit mode · no transactions', { exact: true })).toBeVisible();
@@ -32,6 +60,8 @@ test('edit, undo, redo and autosave survive reload', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'An Avalanche app of my own' })).toBeVisible();
   await expect(page.getByText('Draft saved locally', { exact: true })).toBeVisible();
   await page.reload();
+  await expect(page.getByRole('heading', { name: 'Connect to access Studio.', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
   await expect(page.getByRole('heading', { name: 'An Avalanche app of my own' })).toBeVisible();
 });
 
@@ -83,6 +113,28 @@ test('malformed import preserves the current project', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('Unable to complete this action');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Your token dashboard', exact: true })).toBeVisible();
+});
+
+test('extension disconnect closes a destructive confirmation and preserves the local project', async ({ page }) => {
+  await openStudio(page);
+  const projectName = (await page.locator('.project-switcher').innerText()).trim();
+  await page.locator('.project-switcher').click();
+  const projectsDialog = page.getByRole('dialog', { name: 'Your local workspace' });
+  await expect(projectsDialog).toBeVisible();
+  await projectsDialog.getByRole('button', { name: `Delete ${projectName}` }).click();
+  await expect(page.getByRole('dialog', { name: 'Delete local project?' })).toBeVisible();
+
+  await page.evaluate(() => (window as unknown as { __emitWalletEvent: (event: string, accounts: string[]) => void }).__emitWalletEvent('accountsChanged', []));
+
+  await expect(page.getByRole('dialog', { name: 'Delete local project?' })).toHaveCount(0);
+  const gate = page.locator('main#main-content');
+  await expect(gate).toHaveCount(1);
+  await expect(gate.getByRole('heading', { name: 'Connect to access Studio.', exact: true })).toBeVisible();
+  await expect(gate.evaluate(element => !element.closest('[aria-hidden="true"], [inert]'))).resolves.toBe(true);
+  await expect(page.getByRole('button', { name: 'Delete project', exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
+  await expect(page.locator('.project-switcher')).toContainText(projectName);
 });
 
 test('mobile landing and runtime do not overflow the page', async ({ page }) => {
@@ -147,9 +199,9 @@ test('confirmed deployment keeps Contracts and Preview on one wallet session', a
   });
 
   await openStudio(page);
+  await expect(page.locator('main#main-content')).toHaveCount(1);
   await page.getByRole('button', { name: 'Contracts', exact: true }).click();
   const manager = page.getByRole('region', { name: 'Contract configuration' });
-  await manager.getByRole('button', { name: 'Connect Injected', exact: true }).click();
   await expect(manager.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
   await manager.getByRole('button', { name: 'Deploy template', exact: true }).click();
   await manager.getByLabel('Token name', { exact: true }).fill('Regression token');
@@ -167,8 +219,18 @@ test('confirmed deployment keeps Contracts and Preview on one wallet session', a
   await expect(runtime.getByRole('button', { name: 'Disconnect', exact: true })).toHaveCount(2);
   await expect(runtime.getByRole('heading', { name: 'Your token dashboard', exact: true })).toBeVisible();
   await runtime.getByRole('button', { name: 'Disconnect', exact: true }).first().click();
+  const gateMain = page.locator('main#main-content');
+  await expect(gateMain).toHaveCount(1);
+  await expect(gateMain.getByRole('heading', { name: 'Connect to access Studio.', exact: true })).toBeVisible();
+  await page.locator('.skip-link').focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#main-content$/);
+  await expect(gateMain.evaluate(element => !element.closest('[aria-hidden="true"], [inert]'))).resolves.toBe(true);
+  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
+  await expect(page.locator('main#main-content')).toHaveCount(1);
   await page.getByRole('button', { name: 'Contracts', exact: true }).click();
-  await expect(manager.getByRole('button', { name: 'Connect Injected', exact: true })).toBeVisible();
+  await expect(manager.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();
+  await expect(manager.getByText('Project contracts (1)', { exact: true })).toBeVisible();
   const calls = await page.evaluate(() => (window as unknown as { __walletCalls: string[] }).__walletCalls);
   expect(calls.filter(method => method === 'eth_sendTransaction')).toHaveLength(1);
   expect(errors).toEqual([]);

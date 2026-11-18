@@ -14,7 +14,7 @@ One versioned JSON project powers the editor, interactive runtime, source export
 - **Visual workflows** — Connect click triggers to sequential contract reads, wallet-approved writes, state updates, and user feedback. Bind inputs, state, and wallet context to supported actions.
 - **Contract integration** — Register a deployed Fuji contract using its address and ABI, including ABI artifacts, or deploy the included fixed-supply ERC-20 and owner-mint ERC-721 templates through your wallet.
 - **Interactive preview** — Test the shared runtime explicitly. Editing the canvas does not initiate transactions; preview interactions can request wallet approval.
-- **Local projects** — Create, rename, duplicate, and autosave projects in your browser. Import validated JSON and download portable backups. No Impactor account is required.
+- **Studio wallet entry** — Connect an injected wallet to enter the browser-local Studio. This is a client-side gate, not a server account, signed login, or wallet-isolated workspace; drafts remain in the browser. No signature, payment, or upload is requested just for connecting.
 - **Source export** — Download a standalone Next.js project with the actual shared runtime sources, project snapshot, pinned dependency lockfile, setup instructions, and license notices.
 - **Experimental Irys hosting** — Package a self-contained static website, review its storage quote, explicitly approve funding and upload, then verify gateway content. Recovery records and cross-tab locks help prevent blind duplicate payments or uploads.
 
@@ -26,7 +26,7 @@ One versioned JSON project powers the editor, interactive runtime, source export
 - A modern browser; publishing additionally requires Web Crypto, Web Locks, and HTTPS or localhost.
 - An injected EVM wallet, such as Core or MetaMask, for blockchain actions. Use a disposable test wallet and **Fuji test AVAX**, not real-value funds.
 
-A wallet is not required to edit projects, download JSON backups, or export source.
+A wallet connection is required to enter Studio. It is the same connection for new and returning users, but it is not server authentication: there is no Impactor account, signed login, or wallet-isolated local storage. Connecting alone does not request a signature, payment, or upload. Published and exported dApps remain public visitor applications and request a wallet only for their own explicit interactions.
 
 ```bash
 git clone https://github.com/agenticbernie/impactor.git
@@ -35,7 +35,7 @@ npm ci
 npm run dev
 ```
 
-Open [localhost:3000](http://localhost:3000), then enter [Studio](http://localhost:3000/studio).
+Open [localhost:3000](http://localhost:3000), deliberately connect an injected wallet from the landing page or Studio gate, then enter [Studio](http://localhost:3000/studio). Refreshing requires an explicit reconnect; the application does not prompt automatically.
 
 The development and production build hooks generate both the portable source bundle and the static runtime/browser SDK assets. No private keys or service credentials are required. The current wallet provider uses injected-wallet discovery; setting a WalletConnect environment variable alone does not enable a relay. See [`.env.example`](.env.example).
 
@@ -50,7 +50,7 @@ The **Studio application** runs as a Next.js server application. The **website p
 
 ## Build your first dApp
 
-1. **Start a project.** Choose the token starter or a blank project from the project menu.
+1. **Connect to enter Studio.** Use the landing-page or Studio-gate connection control. This opens a client-side browser workspace; it does not create an account, sign a login message, or isolate an existing local draft by wallet.
 2. **Configure a contract.** In **Contracts**, register a Fuji address and ABI or deploy a supported template after reviewing its permissions and approving the wallet request.
 3. **Compose the interface.** Add blocks in **Interface** and configure their properties. Add inputs and app-state variables as needed.
 4. **Wire the behavior.** In **Workflow**, connect a UI trigger to supported reads, writes, and feedback steps. Configure the contract methods and argument bindings.
@@ -75,7 +75,7 @@ Publishing uploads the **frontend**, not the smart contracts. Contracts execute 
 1. Open **Publish** and review the public-data and testnet warnings.
 2. Deliberately connect a wallet on **Avalanche Fuji — chain ID `43113`**.
 3. Prepare a snapshot and quote. Preparation does not request a wallet signature, make a payment, or upload the website.
-4. Review the exact prepared bundle price, existing Irys storage balance, funding shortfall, and recipient. Wallet gas is separate.
+4. Review the exact prepared bundle price, existing Irys storage balance, funding shortfall, and recipient. A previously funded balance may or may not cover a fresh exact quote; the app never tops up automatically. Wallet gas is separate.
 5. If necessary, explicitly approve funding with Fuji test AVAX.
 6. Separately approve **Sign & upload** to authorize spending storage credit on the prepared website.
 7. Verify the served HTML and named files against the prepared content before treating the link as verified.

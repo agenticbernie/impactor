@@ -69,6 +69,13 @@ describe('explicit publication state machine', () => {
   it('rejects wrong-chain preparation without preparing the SDK', async () => {
     const s = setup(); s.wallet.getChainId.mockResolvedValue(43114); await s.prepare(); expect(s.adapter.prepare).not.toHaveBeenCalled();
   });
+  it('rejects a changed viem account before a funding request', async () => {
+    const s = setup(); await s.prepare();
+    s.wallet.account.address = `0x${'3'.repeat(40)}` as typeof address;
+    await s.publisher.fund();
+    expect(s.wallet.sendTransaction).not.toHaveBeenCalled();
+    expect(s.publisher.state.error).toMatch(/Wallet or chain changed/);
+  });
   it('requires review again if fresh price, credit or funding recipient changed', async () => {
     const s = setup(); await s.prepare(); vi.mocked(s.prepared.price).mockResolvedValue(101n); await s.publisher.fund();
     expect(s.wallet.sendTransaction).not.toHaveBeenCalled(); expect(s.publisher.state.error).toMatch(/changed/);
