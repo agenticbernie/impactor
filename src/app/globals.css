@@ -92,6 +92,15 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .site-header nav { display: flex; gap: 32px; font-size: 12px; color: var(--muted); }
 .site-header nav a:hover { color: var(--primary); }
 .wallet-entry { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }.wallet-entry-address, .wallet-entry-status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; white-space: nowrap; }.wallet-entry-disconnect { color: var(--muted); font-size: 11px; min-height: 32px; }.wallet-entry-disconnect:hover { color: var(--primary); }.wallet-entry-help, .wallet-entry-error { width: 100%; margin: 0; color: var(--muted); font-size: 11px; }.wallet-entry-error { color: var(--error); }
+.wallet-chooser { display: grid; gap: 16px; }
+.wallet-chooser-list { display: grid; gap: 10px; list-style: none; padding: 0; margin: 0; min-width: 0; }
+.wallet-chooser-list:empty { display: none; }
+.wallet-chooser-option { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 14px; border: 1px solid var(--border); border-radius: 7px; text-align: left; background: var(--surface); }
+.wallet-chooser-option:not(:disabled):hover { background: var(--inset); border-color: var(--border-strong); }
+.wallet-chooser-option>span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.wallet-chooser-option>svg { color: var(--muted); }
+.wallet-chooser-help, .wallet-chooser .wallet-entry-error { font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.wallet-chooser-help { color: var(--muted); }
 .hero { padding: 54px 6% 0; }
 .hero-kicker { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 9px; letter-spacing: 1.5px; font-weight: 600; }
 .hero-kicker .small-dot { color: var(--primary); }
@@ -299,8 +308,9 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .workflow-step-list { flex: 1; padding: 25px; }.workflow-step-list>section { margin-bottom: 30px; }.workflow-step-list h3 { font-size: 11px; color: var(--muted); margin-bottom: 12px; }.workflow-step-list ol { list-style: none; padding: 0; }.workflow-step-list li { display: flex; align-items: center; justify-content: space-between; gap: 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); margin-bottom: 10px; padding: 5px 7px; }.workflow-step-list li.selected { border-color: var(--primary); }.step-select { display: flex; gap: 11px; align-items: center; padding: 9px; text-align: left; min-width: 0; flex: 1; }.step-select>span { font-size: 10px; color: var(--muted); }.step-select>svg { color: var(--primary); }.step-select>div { min-width: 0; }.step-select strong { display: block; font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }.step-select small { font-size: 10px; color: var(--muted); }.workflow-step-list li>div { display: flex; }
 
 /* Dialogs — plain-language reviews and recoverable project operations. */
-.dialog-overlay { position: fixed; inset: 0; background: #16151180; z-index: 50; backdrop-filter: blur(3px); }
-.dialog-content { position: fixed; z-index: 51; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(580px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow: auto; border: 1px solid var(--border); border-radius: 12px; padding: 27px; background: var(--surface); box-shadow: 0 28px 100px #0003; }.dialog-wide { width: min(860px, calc(100% - 32px)); }
+/* Dialogs sit above the reconnect gate as well as the editor. */
+.dialog-overlay { position: fixed; inset: 0; background: #16151180; z-index: 70; backdrop-filter: blur(3px); }
+.dialog-content { position: fixed; z-index: 71; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(580px, calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow: auto; border: 1px solid var(--border); border-radius: 12px; padding: 27px; background: var(--surface); box-shadow: 0 28px 100px #0003; }.dialog-wide { width: min(860px, calc(100% - 32px)); }
 .dialog-heading { display: flex; align-items: flex-start; gap: 15px; justify-content: space-between; margin-bottom: 25px; }.dialog-heading h2 { font-size: 25px; font-weight: 500; letter-spacing: -.8px; line-height: 1.25; }.dialog-heading p { color: var(--muted); font-size: 12px; line-height: 1.8; margin-top: 10px; }.dialog-heading>.icon-button { margin: -6px -7px 0 0; }
 .dialog-section-title { font-size: 11px; font-weight: 600; margin: 25px 0 12px; }.project-actions { display: flex; gap: 7px; flex-wrap: wrap; }.project-actions .button { font-size: 11px; padding: 9px 10px; }
 .project-list { border-block: 1px solid var(--border); max-height: 260px; overflow: auto; }.project-list>div { display: flex; align-items: center; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); }.project-list>div:last-child { border: 0; }.project-list>div>button:first-child { display: flex; align-items: center; flex: 1; gap: 12px; text-align: left; min-width: 0; padding: 12px 5px; font-size: 12px; }.project-list>div>button:first-child>span { overflow-wrap: anywhere; min-width: 0; }.project-list small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }.project-list>.muted-help { padding: 20px 0; }

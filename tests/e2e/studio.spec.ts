@@ -4,27 +4,49 @@ import erc721 from '../../src/lib/web3/artifacts/OwnerMintNFT.json';
 
 const defaultAccount = '0x0000000000000000000000000000000000000001';
 
-async function installStudioWallet(page: import('@playwright/test').Page) {
-  await page.addInitScript(account => {
+async function installStudioWallet(page: import('@playwright/test').Page, controlled = false) {
+  await page.addInitScript(({ account, controlled }) => {
     if (window.ethereum) return;
     const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
     Object.defineProperty(window, '__emitWalletEvent', { value: (event: string, ...args: unknown[]) => listeners.get(event)?.forEach(listener => listener(...args)) });
+    const calls: string[] = [];
+    Object.defineProperty(window, '__connectionCalls', { value: calls });
     Object.defineProperty(window, 'ethereum', { configurable: true, value: {
       request: async ({ method }: { method: string }) => {
+        calls.push(method);
+        if (controlled && method === 'eth_requestAccounts') return new Promise<string[]>((resolve, reject) => {
+          Object.defineProperty(window, '__settleConnection', { configurable: true, value: (succeed: boolean) => succeed ? resolve([account]) : reject(Object.assign(new Error('Raw private provider error'), { code: 4001 })) });
+        });
         if (method === 'eth_accounts' || method === 'eth_requestAccounts') return [account];
         if (method === 'eth_chainId') return '0xa869';
         if (method === 'wallet_requestPermissions') return [];
         throw new Error(`Unexpected wallet request: ${method}`);
       }, on(event: string, listener: (...args: unknown[]) => void) { const registered = listeners.get(event) ?? new Set(); registered.add(listener); listeners.set(event, registered); }, removeListener(event: string, listener: (...args: unknown[]) => void) { listeners.get(event)?.delete(listener); },
     } });
-  }, defaultAccount);
+    const announce = () => window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail: {
+      info: { uuid: '350670db-19fa-4704-a166-e52e178b59d2', name: 'Studio Test Wallet', icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>', rdns: 'test.studio.wallet' },
+      provider: window.ethereum,
+    } }));
+    window.addEventListener('eip6963:requestProvider', announce);
+    announce();
+  }, { account: defaultAccount, controlled });
+}
+
+async function connectStudioWallet(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Choose a wallet', exact: true });
+  // The named EIP-6963 fixture is preferred; custom deployment fixtures retain Injected.
+  const choice = dialog.getByRole('list', { name: 'Detected wallets' }).getByRole('button').last();
+  await expect(choice).toHaveText(/^(Studio Test Wallet|Injected)$/);
+  await choice.click();
+  await expect(dialog).toHaveCount(0);
 }
 
 async function openStudio(page: import('@playwright/test').Page) {
   await installStudioWallet(page);
   await page.goto('/studio');
   const gate = page.getByRole('main');
-  if (await gate.getByText('Connect to access Studio.', { exact: true }).isVisible()) await gate.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
+  if (await gate.getByText('Connect to access Studio.', { exact: true }).isVisible()) await connectStudioWallet(page);
   await expect(page.getByRole('navigation', { name: 'Studio workspace' })).toBeVisible();
   await expect(page.locator('.save-status')).toHaveText('Draft saved locally');
 }
@@ -35,17 +57,102 @@ test('landing wallet entry and direct Studio gate require a deliberate connectio
   await installStudioWallet(page);
   await page.goto('/');
   await expect(page.locator('h1')).toBeVisible();
-  await expect(page.getByRole('button', { name: /Connect .*sign in \/ sign up/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Connect wallet', exact: true })).toHaveCount(1);
   await expect(page.getByText('Connection only — no Impactor account, signature, payment, or upload.', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: /Connect a wallet to build/i })).toHaveAttribute('href', '/studio');
   await page.goto('/studio');
   await expect(page.getByRole('heading', { name: 'Connect to access Studio.', exact: true })).toBeVisible();
   await expect(page.locator('[id="main-content"]')).toHaveCount(1);
-  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
+  await connectStudioWallet(page);
   await expect(page.getByRole('navigation', { name: 'Studio workspace' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Your token dashboard', exact: true })).toBeVisible();
   await expect(page.getByText('Edit mode · no transactions', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('landing chooser discovers named browser wallets and restores keyboard focus', async ({ page }) => {
+  await installStudioWallet(page);
+  await page.goto('/');
+  const trigger = page.getByRole('button', { name: 'Connect wallet', exact: true });
+  await expect(trigger).toHaveCount(1);
+  await trigger.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Choose a wallet', exact: true });
+  await expect(dialog.getByRole('button', { name: 'Studio Test Wallet', exact: true })).toBeVisible();
+  await expect(dialog).toContainText('Wallets detected in this browser appear below.');
+  expect(await page.evaluate(() => (window as unknown as { __connectionCalls: string[] }).__connectionCalls)).toEqual([]);
+  await page.keyboard.press('Shift+Tab');
+  await expect(dialog.getByRole('button', { name: 'Studio Test Wallet', exact: true })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(dialog.getByRole('button', { name: 'Close dialog' })).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await connectStudioWallet(page);
+  await expect(page.getByText('0x0000…0001 · Chain 43113', { exact: false })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open Studio', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await expect(trigger).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Open Studio', exact: true })).toHaveCount(0);
+});
+
+test('no-provider browser still opens an empty chooser on landing and Studio at mobile width', async ({ page }) => {
+  // A clean browser context with no EIP-6963 announcer and no legacy provider.
+  // Do not installStudioWallet here: it would invalidate the empty-provider case.
+  await page.addInitScript(() => Object.defineProperty(window, 'ethereum', { configurable: true, value: undefined }));
+  await page.setViewportSize({ width: 320, height: 640 });
+  for (const route of ['/', '/studio']) {
+    await page.goto(route);
+    const trigger = page.getByRole('button', { name: 'Connect wallet', exact: true });
+    await expect(trigger).toHaveCount(1);
+    await trigger.click();
+    const dialog = page.getByRole('dialog', { name: 'Choose a wallet', exact: true });
+    await expect(dialog.getByText('No wallet detected.', { exact: false })).toBeVisible();
+    await expect(dialog.getByRole('list', { name: 'Detected wallets' }).getByRole('button')).toHaveCount(0);
+    await expect(dialog.getByRole('button')).toHaveCount(1); // Only the close control.
+    const bounds = await dialog.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(16);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(304);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(trigger).toBeFocused();
+  }
+});
+
+test('chooser prevents duplicate pending requests, permits dismissal, and offers a safe retry', async ({ page }) => {
+  await installStudioWallet(page, true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/studio');
+  const trigger = page.getByRole('button', { name: 'Connect wallet', exact: true });
+  await trigger.click();
+  const dialog = page.getByRole('dialog', { name: 'Choose a wallet', exact: true });
+  const choice = dialog.getByRole('button', { name: 'Studio Test Wallet', exact: true });
+  await choice.click();
+  await expect(dialog.getByRole('status')).toContainText('Connecting to Studio Test Wallet');
+  await expect(choice).toBeDisabled();
+  for (const option of await dialog.getByRole('list', { name: 'Detected wallets' }).getByRole('button').all()) await expect(option).toBeDisabled();
+  await choice.evaluate(element => { (element as HTMLButtonElement).click(); (element as HTMLButtonElement).click(); });
+  await page.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await expect(choice).toBeDisabled();
+  await page.evaluate(() => (window as unknown as { __settleConnection: (succeed: boolean) => void }).__settleConnection(false));
+  await expect(dialog.getByRole('alert')).toHaveText('Wallet connection was not completed. Check your wallet and try again.');
+  await expect(dialog).not.toContainText('Raw private provider error');
+  await expect(choice).toBeEnabled();
+  await page.keyboard.press('Escape');
+  await trigger.click();
+  await expect(dialog.getByRole('alert')).toBeVisible();
+  await choice.click();
+  await expect(dialog.getByRole('status')).toContainText('Connecting to Studio Test Wallet');
+  await expect(dialog.getByRole('alert')).toHaveCount(0);
+  await page.evaluate(() => (window as unknown as { __settleConnection: (succeed: boolean) => void }).__settleConnection(true));
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Studio workspace' })).toBeVisible();
+  const calls = await page.evaluate(() => (window as unknown as { __connectionCalls: string[] }).__connectionCalls);
+  expect(calls.filter(method => method === 'eth_requestAccounts')).toHaveLength(2);
+  expect(calls.filter(method => method.includes('sign') || method.startsWith('eth_send'))).toEqual([]);
 });
 
 test('edit, undo, redo and autosave survive reload', async ({ page }) => {
@@ -61,7 +168,7 @@ test('edit, undo, redo and autosave survive reload', async ({ page }) => {
   await expect(page.getByText('Draft saved locally', { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Connect to access Studio.', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
+  await connectStudioWallet(page);
   await expect(page.getByRole('heading', { name: 'An Avalanche app of my own' })).toBeVisible();
 });
 
@@ -133,7 +240,7 @@ test('extension disconnect closes a destructive confirmation and preserves the l
   await expect(gate.evaluate(element => !element.closest('[aria-hidden="true"], [inert]'))).resolves.toBe(true);
   await expect(page.getByRole('button', { name: 'Delete project', exact: true })).toHaveCount(0);
 
-  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
+  await connectStudioWallet(page);
   await expect(page.locator('.project-switcher')).toContainText(projectName);
 });
 
@@ -226,7 +333,7 @@ test('confirmed deployment keeps Contracts and Preview on one wallet session', a
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#main-content$/);
   await expect(gateMain.evaluate(element => !element.closest('[aria-hidden="true"], [inert]'))).resolves.toBe(true);
-  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
+  await connectStudioWallet(page);
   await expect(page.locator('main#main-content')).toHaveCount(1);
   await page.getByRole('button', { name: 'Contracts', exact: true }).click();
   await expect(manager.getByRole('button', { name: 'Disconnect', exact: true })).toBeVisible();

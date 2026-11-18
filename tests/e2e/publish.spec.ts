@@ -28,7 +28,10 @@ test('publish quote uses real browser SDK without implicit signatures and surviv
     return route.fulfill({ contentType: 'application/json', body: url.endsWith('/info') ? JSON.stringify({ addresses: { avalanche: account } }) : url.includes('/price/') ? '1000000000000000' : JSON.stringify({ balance: '0' }) });
   });
   await page.goto('/studio');
-  await page.getByRole('button', { name: /Connect .*sign in \/ sign up/i }).click();
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  const walletChooser = page.getByRole('dialog', { name: 'Choose a wallet', exact: true });
+  await walletChooser.getByRole('button', { name: 'Injected', exact: true }).click();
+  await expect(walletChooser).toHaveCount(0);
   await page.getByRole('button', { name: 'Publish', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Publish a Fuji website' })).toBeVisible();
